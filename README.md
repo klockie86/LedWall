@@ -10,6 +10,6 @@ Een led op volledige helderheid en alle kleuren (RGB) gebruikt 60mA.
 Totaal: 20x15=300 LEDs
 
 Totale stroom secundair: 300x0.06 = 18A
-Totaal Vermogen: 18A x 5V = 90Watt
+Totaal Vermogen: 18A x 5V = 90W
 
 Totale stroom primair: 90 / 230 = 0,5A
