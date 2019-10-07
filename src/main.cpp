@@ -1,18 +1,19 @@
 /*
 WS2812b Ledwall with webinterface
-
-Changes:
-V0.0  Jeroen Klock 2-10-2019
+Jeroen Klock 2-10-2019
+See: https://github.com/klockie86/LedWall
 
 Todo:
-  - ip adres weergeven na initialisatie
+  - loop voor IP in scherm
   - colorpicker in Webinterface.
-  - text in panel.
+  - HTML pagina via SPIFFS
   - logo instellen.
+  - OTA
 */
 ////////////////////////////////////////////////////////////////////////////////
 // Global settings
 ////////////////////////////////////////////////////////////////////////////////
+#define BRANDNAME "Omexom"
 #define NAME "Omexom LedWAll"
 #define PASSWORD  "Omexom123"
 #define PIN D2              // Output pin for data line leds
@@ -45,7 +46,8 @@ Todo:
 #include <ESP8266mDNS.h>
 
 // DHT related stuff
-//#include <DHT.h>
+#include <DHT.h>
+#include <Adafruit_Sensor.h>
 
 // custom .h files
 #include "index.h"
@@ -53,8 +55,9 @@ Todo:
 ////////////////////////////////////////////////////////////////////////////////
 // Global vars
 ////////////////////////////////////////////////////////////////////////////////
-int x    = X_MAX;
-int pass = 0;
+enum state {off,red,green,blue,flipmode};
+int iCurrentState, iRecState;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Initiation
@@ -69,63 +72,114 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(X_MAX, Y_MAX, PIN,
   NEO_RGB + NEO_KHZ800);
 
 // Initialize DHT
-// DHT dht(DHTPIN, DHTTYPE);
+DHT dht(DHTPIN, DHTTYPE);
+
+// Init Wifimanager
+WiFiManager wifiManager;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Some functions
 ////////////////////////////////////////////////////////////////////////////////
+// when root page is called
 void handleRoot() {
-  // when root page is called
    String s = MAIN_page; //Read HTML contents
    server.send(200, "text/html", s); //Send web page
 }
-// when command is received from webpages
-void doSomething() {
-  String ledState = "OFF";
-  String t_state = server.arg("LEDstate"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
-  DBG_OUTPUT_PORT.println("Received LEDstate: "+ t_state);
-  if(t_state == "1"){
-    matrix.fillScreen(matrix.Color(0,255,0));
-    matrix.show();
-  }
-  else
-  {
-    matrix.fillScreen(matrix.Color(0, 0, 255));
-    matrix.show();
-  }
-  server.send(200, "text/plane", ledState); //Send web page
+void resetWifi() {
+  DBG_OUTPUT_PORT.println("Resetting wifi");
+  wifiManager.resetSettings();
+  server.send(200, "text/plain", "wifi has been reset, please connect with new accespoint."); //Send web page
+  DBG_OUTPUT_PORT.println("Restarting ESP");
+  ESP.restart();
 }
+
+// when command is received from webpages
+void setState() {
+  String sRecState = server.arg("LEDstate"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
+  DBG_OUTPUT_PORT.println("Received LEDstate: "+ sRecState);
+  iRecState = sRecState.toInt();
+}
+
+// when command is received from webpages
+void setBrightness() {
+  String sRec = server.arg("Brightness"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
+  DBG_OUTPUT_PORT.println("Received Brightness: "+ sRec);
+  matrix.setBrightness(sRec.toInt());
+  matrix.show();
+  server.send(200, "text/html", sRec);
+}
+
+
+
+int getClimate(float &temp, float &hum){
+  DBG_OUTPUT_PORT.println("Reading temperature.");
+  temp = dht.readTemperature();
+  hum = dht.readHumidity();
+  // check if correct values are returned
+  if (isnan(temp) || isnan(hum))
+  {
+    DBG_OUTPUT_PORT.println("ERROR: Failed to read from DHT sensor!");
+    temp = 0;
+    hum = 0;
+    return 0;
+  }
+  return 1;
+}
+
+// when command is received from webpages
+void readTemp() {
+  float t;
+  float h;
+  String sTemp;
+
+// read climate from dht
+  getClimate(t,h);
+  sTemp = "<span id=\"temp\">Temperatuur: "+String(t)+"&#8451 | </span><span id = \"hum\"> Luchtvochtigheid: "+String(h)+"%</span>";
+  server.send(200, "text/html", sTemp);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Setup loop
 ////////////////////////////////////////////////////////////////////////////////
 void setup() {
-  DBG_OUTPUT_PORT.begin(115200); // enable serial for debugging
+  // enable serial for debugging
+  DBG_OUTPUT_PORT.begin(115200);
   DBG_OUTPUT_PORT.println("Initializing LED matrix.");
+  // start matrix
   matrix.begin();
   matrix.setTextWrap(false);
   matrix.setBrightness(BRIGHTNESS);
   matrix.fillScreen(matrix.Color(255,255,255));
   matrix.show();
-  DBG_OUTPUT_PORT.println("Setting up WifiManager.");
-  WiFiManager wifiManager;
 
-//  DBG_OUTPUT_PORT.println("Setting up DHT sensor.");
-//  dht.begin();
-
-// if stuck at booting while not connecting to wifi, uncommend line
-// wifiManager.resetSettings();
+  // start DHT sensor
+  dht.begin();
+  // start wifimanager
   wifiManager.autoConnect(NAME, PASSWORD);
   DBG_OUTPUT_PORT.println("Connected to Wifi.");
   DBG_OUTPUT_PORT.println("Starting server.");
 
+  // get local IP and print on screen
+  IPAddress ip = WiFi.localIP();
+  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + "on LEDwall.");
+  matrix.setTextColor(matrix.Color(0, 255, 0));
+  matrix.setCursor(0, 0);   // start at top left, with one pixel of spacing
+  matrix.setTextSize(1);    // size 1 == 8 pixels high
+  matrix.print(ip.toString());
+  matrix.show();
+
   // init webserver functions
   server.on("/", handleRoot);
-  server.on("/setLED", doSomething);
+  server.on("/resetWifi", resetWifi);
+  server.on("/setState", setState);
+  server.on("/setBrightness", setBrightness);
+  server.on("/readTemp", readTemp);
 
   // start webserver
   server.begin();
   DBG_OUTPUT_PORT.println("Webserver started");
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -133,49 +187,66 @@ void setup() {
 ////////////////////////////////////////////////////////////////////////////////
 void loop() {
   server.handleClient();
-  // Wait a few seconds between measurements.
 
-  /*
-delay(2000);
-
-float h = dht.readHumidity();
-float t = dht.readTemperature();
-float f = dht.readTemperature(true);
-
-// Check if any reads failed and exit early (to try again).
-if (isnan(h) || isnan(t) || isnan(f))
-{
-  Serial.println("Failed to read from DHT sensor!");
-  return;
-}
-
-Serial.print("Humidity: ");
-Serial.print(h);
-Serial.print(" %\t");
-Serial.print("Temperature: ");
-Serial.print(t);
-Serial.print(" *C ");
-Serial.print(f);
-Serial.println(" *F");
-*/
-
-
-//  matrix.fillScreen(matrix.Color(255, 0, 0));
-/*
-  for(int y = 0; y < Y_MAX; y++){
-    for(int x = 0; x < X_MAX; x++){
-      if(y & 1){
-        matrix.setPixelColor(19 - x + y * 20, matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8 + i * 128 * 2)));
-      }
-      else{
-        matrix.setPixelColor(x + y * 20,
-        matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8+ i * 128 * 2)));
-      }
+  static int i, lastTime = 0, curTime;
+  String sTemp = "";
+  if(iRecState != iCurrentState || iRecState == flipmode){
+    switch (iRecState){
+      case off:
+        matrix.fillScreen(matrix.Color(0,0,0));
+        matrix.show();
+        break;
+      case red:
+        matrix.fillScreen(matrix.Color(255,0,0));
+        matrix.show();
+        break;
+      case green:
+        matrix.fillScreen(matrix.Color(0,255,0));
+        matrix.show();
+        break;
+      case blue:
+        matrix.fillScreen(matrix.Color(0,0,255));
+        matrix.show();
+        break;
+      case flipmode:
+        i ++;
+        // update temperature every 5 seconds;
+        curTime = millis();
+        if(lastTime == 0 || (curTime - lastTime > 2000)){
+          float t;
+          float h;
+          String sTemp;
+          // read climate from dht
+          if(getClimate(t,h)){
+            sTemp = "Klimaat: "+String(t)+" "+String(h);
+          }
+          else{
+            sTemp = "";
+          }
+          lastTime = curTime;
+        }
+        for(int y = 0; y < Y_MAX; y++){
+          for(int x = 0; x < X_MAX; x++){
+            if(y & 1){
+              matrix.setPixelColor(19 - x + y * 20, matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8 + i * 128 * 2)));
+            }
+            else{
+              matrix.setPixelColor(x + y * 20,
+              matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8+ i * 128 * 2)));
+            }
+          }
+        }
+        matrix.setTextColor(matrix.Color(0, 0, 255));
+        matrix.setCursor(-((millis() / 30) & 127) + 20, 4);
+        matrix.print(BRANDNAME+sTemp);
+        matrix.show();
+        break;
+      default:
+        matrix.fillScreen(matrix.Color(255,255,255));
+        matrix.show();
     }
+    iCurrentState = iRecState;
+    // send state back to server
+    server.send(200, "text/plane", String(iRecState));
   }
-  matrix.setTextColor(matrix.Color(0, 0, 255));
-  matrix.setCursor(-((millis() / 30) & 127) + 20, 4);
-  matrix.print(F("Omexom"));
-  matrix.show();
-*/
 }

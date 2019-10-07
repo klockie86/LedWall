@@ -9,43 +9,71 @@ const char MAIN_page[] = R"=====(
 </head>
 <body>
 
-<div id="demo">
-<h1>The ESP8266 NodeMCU Update web page without refresh</h1>
-	<button type="button" onclick="sendData(1)">LED ON</button>
-	<button type="button" onclick="sendData(0)">LED OFF</button><BR>
+<div id="command">
+<h1>Omexom ping pong led wall</h1>
+  <button type="button" onclick="setState(0)">uit</button>
+  <button type="button" onclick="setState(1)">rood</button>
+	<button type="button" onclick="setState(2)">groen</button>
+  <button type="button" onclick="setState(3)">blauw</button>
+  <button type="button" onclick="setState(4)">flipmode</button><BR>
 </div>
 
-<div>
-	ADC Value is : <span id="ADCValue">0</span><br>
-    LED State is : <span id="LEDState">NA</span>
+Led status:<span id="Status">0</span></br>
+<div class="slidecontainer">
+<input type="range" min="0" max="255" value="50" class="slider" id="setBrightness"/>
 </div>
+</br>
+<input type="button" id = "wifi_button" onclick="resetWifi()" value="Reset Wifi"/>
+</br>
+<span id="resetStatus"></span></br>
+<div id="climate"></div>
+<div id="footer"><p>Designed by Jeroen Klock</p></div>
 <script>
-function sendData(led) {
+function setState(led) {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("LEDState").innerHTML =
+      document.getElementById("Status").innerHTML =
       this.responseText;
     }
   };
-  xhttp.open("GET", "setLED?LEDstate="+led, true);
+  xhttp.open("GET", "setState?LEDstate="+led, true);
+  xhttp.send();
+}
+
+setBrightness.onchange = function() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "setBrightness?Brightness="+this.value, true);
+  xhttp.send();
+}
+
+
+function resetWifi() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      document.getElementById("resetStatus").innerHTML =
+      this.responseText;
+    }
+  };
+  xhttp.open("GET", "resetWifi", true);
   xhttp.send();
 }
 
 setInterval(function() {
   // Call a function repetatively with 2 Second interval
   getData();
-}, 2000); //2000mSeconds update rate
+}, 5000); //2000mSeconds update rate
 
 function getData() {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("ADCValue").innerHTML =
+      document.getElementById("climate").innerHTML =
       this.responseText;
     }
   };
-  xhttp.open("GET", "readADC", true);
+  xhttp.open("GET", "readTemp", true);
   xhttp.send();
 }
 </script>
