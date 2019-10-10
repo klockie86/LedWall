@@ -44,19 +44,18 @@ Todo:
 #include <WiFiManager.h>
 #include <WiFiClient.h>
 #include <ESP8266mDNS.h>
+// library for SPIFFS
+#include <FS.h>
 
 // DHT related stuff
 #include <DHT.h>
 #include <Adafruit_Sensor.h>
 
-// custom .h files
-#include "index.h"
-
 ////////////////////////////////////////////////////////////////////////////////
 // Global vars
 ////////////////////////////////////////////////////////////////////////////////
-enum state {off,red,green,blue,flipmode};
-int iCurrentState, iRecState;
+enum state {off,red,green,blue,flipmode,colorpick};
+int iCurrentState, iRecState, iColorR, iColorG, iColorB;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,13 +76,22 @@ DHT dht(DHTPIN, DHTTYPE);
 // Init Wifimanager
 WiFiManager wifiManager;
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Custom header files
+////////////////////////////////////////////////////////////////////////////////
+//#include "spiffs_webserver.h"
+#include "index.h"
+
 ////////////////////////////////////////////////////////////////////////////////
 // Some functions
 ////////////////////////////////////////////////////////////////////////////////
 // when root page is called
 void handleRoot() {
-   String s = MAIN_page; //Read HTML contents
-   server.send(200, "text/html", s); //Send web page
+    DBG_OUTPUT_PORT.println("Webserver handleroot called");
+    String s = MAIN_page; //Read HTML contents
+    server.send(200, "text/html", s); //Send web page
+
 }
 void resetWifi() {
   DBG_OUTPUT_PORT.println("Resetting wifi");
@@ -96,9 +104,21 @@ void resetWifi() {
 // when command is received from webpages
 void setState() {
   String sRecState = server.arg("LEDstate"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
-  DBG_OUTPUT_PORT.println("Received LEDstate: "+ sRecState);
   iRecState = sRecState.toInt();
+  DBG_OUTPUT_PORT.println("Received LEDstate: "+ sRecState);
 }
+
+void setColor() {
+  String r = server.arg("r");
+  String g = server.arg("g");
+  String b = server.arg("b");
+  DBG_OUTPUT_PORT.println("Received Color: "+r+" "+b+" "+g);
+  iColorR = r.toInt();
+  iColorG = g.toInt();
+  iColorB = b.toInt();
+  iRecState = colorpick; // set state to colorpick for statemachine
+}
+
 
 // when command is received from webpages
 void setBrightness() {
@@ -144,9 +164,28 @@ void readTemp() {
 ////////////////////////////////////////////////////////////////////////////////
 void setup() {
   // enable serial for debugging
-  DBG_OUTPUT_PORT.begin(115200);
+  DBG_OUTPUT_PORT.begin(115200);/*
+
+  // setup spiffs
+  DBG_OUTPUT_PORT.println("Setting up spiffs");
+  if(!SPIFFS.begin())
+  {
+      DBG_OUTPUT_PORT.println("ERROR - Setting up spiffs failed");
+  }
+  else
+  {
+    Dir dir = SPIFFS.openDir("/");
+
+    while (dir.next()) {
+      String fileName = dir.fileName();
+      size_t fileSize = dir.fileSize();
+      DBG_OUTPUT_PORT.printf("FS File: %s, size: %s\r\n", fileName.c_str(), formatBytes(fileSize).c_str());
+    }
+  }
+
+*/
+  // start LED matrix
   DBG_OUTPUT_PORT.println("Initializing LED matrix.");
-  // start matrix
   matrix.begin();
   matrix.setTextWrap(false);
   matrix.setBrightness(BRIGHTNESS);
@@ -162,7 +201,7 @@ void setup() {
 
   // get local IP and print on screen
   IPAddress ip = WiFi.localIP();
-  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + "on LEDwall.");
+  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
   matrix.setTextColor(matrix.Color(0, 255, 0));
   matrix.setCursor(0, 0);   // start at top left, with one pixel of spacing
   matrix.setTextSize(1);    // size 1 == 8 pixels high
@@ -173,6 +212,7 @@ void setup() {
   server.on("/", handleRoot);
   server.on("/resetWifi", resetWifi);
   server.on("/setState", setState);
+  server.on("/setColor", setColor);
   server.on("/setBrightness", setBrightness);
   server.on("/readTemp", readTemp);
 
@@ -190,7 +230,7 @@ void loop() {
 
   static int i, lastTime = 0, curTime;
   String sTemp = "";
-  if(iRecState != iCurrentState || iRecState == flipmode){
+  if(iRecState != iCurrentState || iRecState == flipmode|| iRecState == colorpick){
     switch (iRecState){
       case off:
         matrix.fillScreen(matrix.Color(0,0,0));
@@ -240,6 +280,13 @@ void loop() {
         matrix.setCursor(-((millis() / 30) & 127) + 20, 4);
         matrix.print(BRANDNAME+sTemp);
         matrix.show();
+        break;
+      case colorpick:
+        static int lastR, lastG, lastB;
+        if (iColorR != lastR || iColorG != lastG || iColorB != lastB){
+          matrix.fillScreen(matrix.Color(iColorR,iColorG,iColorB));
+          matrix.show();
+        }
         break;
       default:
         matrix.fillScreen(matrix.Color(255,255,255));
