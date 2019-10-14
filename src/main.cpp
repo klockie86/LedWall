@@ -61,7 +61,7 @@ int iCurrentState, iRecState, iColorR, iColorG, iColorB;
 ////////////////////////////////////////////////////////////////////////////////
 // Initiation
 ////////////////////////////////////////////////////////////////////////////////
-// Instanciate HTTP(80) / WebSockets(81) Server
+// Instanciate HTTP(80)
 ESP8266WebServer server(80);
 
 // Instanciate NeoMatrix
@@ -73,29 +73,33 @@ Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(X_MAX, Y_MAX, PIN,
 // Initialize DHT
 DHT dht(DHTPIN, DHTTYPE);
 
-// Init Wifimanager
-WiFiManager wifiManager;
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // Custom header files
 ////////////////////////////////////////////////////////////////////////////////
-//#include "spiffs_webserver.h"
-#include "index.h"
+#include "spiffs_webserver.h"
+//#include "index.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Some functions
 ////////////////////////////////////////////////////////////////////////////////
-// when root page is called
-void handleRoot() {
-    DBG_OUTPUT_PORT.println("Webserver handleroot called");
-    String s = MAIN_page; //Read HTML contents
-    server.send(200, "text/html", s); //Send web page
 
+void handleNotFound(){
+  if (!handleFileRead(server.uri())) {
+    server.send(404, "text/plain", "FileNotFound");
+  }
 }
+
+void handleRoot() {
+    DBG_OUTPUT_PORT.println("Webserver handleroot called.");
+    if (!handleFileRead(server.uri())){
+      DBG_OUTPUT_PORT.println("Webserver root file not found.");
+      handleNotFound();
+    }
+}
+
 void resetWifi() {
   DBG_OUTPUT_PORT.println("Resetting wifi");
-  wifiManager.resetSettings();
+//  wifiManager.resetSettings();
   server.send(200, "text/plain", "wifi has been reset, please connect with new accespoint."); //Send web page
   DBG_OUTPUT_PORT.println("Restarting ESP");
   ESP.restart();
@@ -164,26 +168,8 @@ void readTemp() {
 ////////////////////////////////////////////////////////////////////////////////
 void setup() {
   // enable serial for debugging
-  DBG_OUTPUT_PORT.begin(115200);/*
+  DBG_OUTPUT_PORT.begin(115200);
 
-  // setup spiffs
-  DBG_OUTPUT_PORT.println("Setting up spiffs");
-  if(!SPIFFS.begin())
-  {
-      DBG_OUTPUT_PORT.println("ERROR - Setting up spiffs failed");
-  }
-  else
-  {
-    Dir dir = SPIFFS.openDir("/");
-
-    while (dir.next()) {
-      String fileName = dir.fileName();
-      size_t fileSize = dir.fileSize();
-      DBG_OUTPUT_PORT.printf("FS File: %s, size: %s\r\n", fileName.c_str(), formatBytes(fileSize).c_str());
-    }
-  }
-
-*/
   // start LED matrix
   DBG_OUTPUT_PORT.println("Initializing LED matrix.");
   matrix.begin();
@@ -194,10 +180,7 @@ void setup() {
 
   // start DHT sensor
   dht.begin();
-  // start wifimanager
-  wifiManager.autoConnect(NAME, PASSWORD);
-  DBG_OUTPUT_PORT.println("Connected to Wifi.");
-  DBG_OUTPUT_PORT.println("Starting server.");
+
 
   // get local IP and print on screen
   IPAddress ip = WiFi.localIP();
@@ -208,7 +191,35 @@ void setup() {
   matrix.print(ip.toString());
   matrix.show();
 
-  // init webserver functions
+  // setup spiffs
+  DBG_OUTPUT_PORT.println("Setting up spiffs");
+  if(!SPIFFS.begin())
+  {
+      DBG_OUTPUT_PORT.println("ERROR - Setting up spiffs failed");
+  }
+  else
+  {
+    Dir dir = SPIFFS.openDir("");
+
+    while (dir.next()) {
+      String fileName = dir.fileName();
+      size_t fileSize = dir.fileSize();
+      DBG_OUTPUT_PORT.printf("FS File: %s, size: %s\r\n", fileName.c_str(), formatBytes(fileSize).c_str());
+    }
+    FSInfo fs_info;
+    SPIFFS.info(fs_info);
+    DBG_OUTPUT_PORT.printf("FS Usage: %d/%d bytes\r\n", fs_info.usedBytes, fs_info.totalBytes);
+  }
+
+  // Init Wifimanager
+  WiFiManager wifiManager;
+
+  // start wifimanager
+  wifiManager.autoConnect(NAME, PASSWORD);
+  DBG_OUTPUT_PORT.println("Connected to Wifi.");
+  DBG_OUTPUT_PORT.println("Starting server.");
+
+
   server.on("/", handleRoot);
   server.on("/resetWifi", resetWifi);
   server.on("/setState", setState);
@@ -216,10 +227,12 @@ void setup() {
   server.on("/setBrightness", setBrightness);
   server.on("/readTemp", readTemp);
 
+  server.onNotFound([]() {
+    handleNotFound();
+  });
   // start webserver
   server.begin();
   DBG_OUTPUT_PORT.println("Webserver started");
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -4,30 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="mobile-web-app-capable" content="yes">
+    <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-
-<div id="command">
-<h1>Omexom ping pong led wall</h1>
-  <button type="button" onclick="setState(0)">uit</button>
-  <button type="button" onclick="setState(1)">rood</button>
-	<button type="button" onclick="setState(2)">groen</button>
-  <button type="button" onclick="setState(3)">blauw</button>
-  <button type="button" onclick="setState(4)">flipmode</button><BR>
-</div>
-
-Led status:<span id="Status">0</span></br>
-<div class="slidecontainer">
-  <input type="range" min="0" max="255" value="50" class="slider" id="setBrightness"/>
-</div>
-  <input type="color" name="color" value="@@color@@">
-  <button type="submit" name="state" value="stop">toepassen</button>
-</br>
-<input type="button" id = "wifi_button" onclick="resetWifi()" value="Reset Wifi"/>
-</br>
-<span id="resetStatus"></span></br>
-<div id="climate"></div>
-<div id="footer"><p>Designed by Jeroen Klock</p></div>
+	<div id="row_header">
+		<div id= "row_container" class="container">
+			<h1>Omexom ping pong LED wall</h1>
+		</div>
+	</div>
+	<div id="row_subheader">
+		<div class="container">
+			<p id="climate">laadt temperatuur</p>
+		</div>	
+	</div>
+	<div id= "main_container" class="container">
+		<div id="patterns">
+			<h2>Patronen</h2>
+	  		<button type="button" onclick="setState(0)">uit</button>
+  			<button type="button" onclick="setState(1)">rood</button>
+			<button type="button" onclick="setState(2)">groen</button>
+  			<button type="button" onclick="setState(3)">blauw</button>
+  			<button type="button" onclick="setState(4)">flipmode</button>
+			<p>Led status:<span id="Status">0</span></p>
+		</div>
+		<div id="own_pattern">
+			<h2>Tekst</h2>
+		</div>
+		<p>Tekst:</p><input/>
+		<div class="slidecontainer">
+  			<input type="range" min="0" max="255" value="50" class="slider" id="setBrightness"/>
+		</div>
+	  	<input type="color" id="colorpicker" value="#0071ce">
+	  	<p>Achtergrondkleur:</p><input/>
+	  	<button type="submit" name="state" onclick="setColor()" >toepassen</button>
+		
+	</div>
+	<div id="row_footer">
+		<div id= "row_container" class="container">
+						<p>Designed by: <a href="https://github.com/klockie86/LedWall">Jeroen Klock</a></p>
+		</div>
+	</div>
 <script>
 function setState(led) {
   var xhttp = new XMLHttpRequest();
@@ -38,6 +55,23 @@ function setState(led) {
     }
   };
   xhttp.open("GET", "setState?LEDstate="+led, true);
+  xhttp.send();
+}
+
+function hexToRgb(hex) {
+  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+function setColor() {
+  var color = document.getElementById("colorpicker").value;
+  var colorRGB = hexToRgb(color);
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "setColor?r="+colorRGB.r+"&g="+colorRGB.g+"&b="+colorRGB.b, true);
   xhttp.send();
 }
 
