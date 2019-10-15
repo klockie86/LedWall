@@ -1,0 +1,127 @@
+<html>
+<head>
+    <title>Omexom Led Wall</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+	<div id="row_header">
+		<div id= "row_container" class="container">
+			<h1>Omexom ping pong LED wall</h1>
+		</div>
+	</div>
+	<div id="row_subheader">
+		<div class="container">
+			<p id="climate">laadt temperatuur</p>
+		</div>	
+	</div>
+	<div id= "main_container" class="container">
+		<div id="background">
+			<h2>Achtergrond</h2>
+			<label>Animaties:</label>
+	  		<button type="button" onclick="setState(0)">uit</button>
+  			<button type="button" onclick="setState(1)">rood</button>
+			<button type="button" onclick="setState(2)">groen</button>
+  			<button type="button" onclick="setState(3)">blauw</button>
+  			<button type="button" onclick="setState(4)">flipmode</button>
+  			<br/>
+<!--			<p>Led status:<span id="Status">0</span></p> -->
+			<label>Achtergrondkleur:</label><input onchange="setBackColor(this.value)" type="color" id="colorpicker" value="#0071ce">
+<!--		  	<button type="submit" name="state" onclick="setColor()" >toepassen</button> -->
+		</div>
+		<div id="foreground">
+			<h2>Tekst</h2>
+			<label>Tekst:</label><input onchange="setText(this.value)" type="text" name="text" value="Omexom"><br/>
+			<label>Kleur:</label><input onchange="setTextColor(this.value)" type="color" id="colorpicker" value="#FFFFFF"><br/>
+			<Label>Temperatuur:</label><input onchange="showTemp(this.checked)" type="checkbox" name="showTemp"><br/>
+<!--			<button type="submit" name="state" onclick="setColor()" >toepassen</button>-->
+		</div>
+		<div id="general">
+			<h2>Helderheid</h2>
+			<input type="range" min="0" max="255" value="50" class="slider" id="setBrightness"/>
+		</div>
+	
+		
+	</div>
+	<div id="row_footer">
+		<div id= "row_container" class="container">
+						<p>Designed by: <a href="https://github.com/klockie86/LedWall">Jeroen Klock</a></p>
+		</div>
+	</div>
+<script>
+function setState(led) {
+  var xhttp = new XMLHttpRequest();
+//  console.log("set status: "+led);
+  xhttp.open("GET", "setState?LEDstate="+led, true);
+  xhttp.send();
+}
+
+function hexToRgb(hex) {
+  var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+
+function setBackColor(color) {
+  var colorRGB = hexToRgb(color);
+//  console.log("set background color to: "+color);
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "setBackColor?r="+colorRGB.r+"&g="+colorRGB.g+"&b="+colorRGB.b, true);
+  xhttp.send();
+}
+
+function setTextColor(color) {
+  var colorRGB = hexToRgb(color);
+  var xhttp = new XMLHttpRequest();
+//  console.log("set text color to: "+color);
+  xhttp.open("GET", "setTextColor?r="+colorRGB.r+"&g="+colorRGB.g+"&b="+colorRGB.b, true);
+  xhttp.send();
+}
+
+function setText(text) {
+  var xhttp = new XMLHttpRequest();
+//  console.log("setting text: "+text);
+  xhttp.open("GET", "setText?Text="+text, true);
+  xhttp.send();
+}
+
+function showTemp(val) {
+  var xhttp = new XMLHttpRequest();
+//  console.log("showTemp: "+val);
+  xhttp.open("GET", "showTemp?Show="+val, true);
+  xhttp.send();
+}
+
+setBrightness.onchange = function() {
+  var xhttp = new XMLHttpRequest();
+//  console.log("setBrightness: "+this.value);
+  xhttp.open("GET", "setBrightness?Brightness="+this.value, true);
+  xhttp.send();
+}
+
+setInterval(function() {
+  // Call a function repetatively with 2 Second interval
+  getData();
+}, 5000); //2000mSeconds update rate
+
+function getData() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      document.getElementById("climate").innerHTML =
+      this.responseText;
+    }
+  };
+  xhttp.open("GET", "readTemp", true);
+  xhttp.send();
+}
+</script>
+</body>
+</html>

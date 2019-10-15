@@ -76,8 +76,7 @@ DHT dht(DHTPIN, DHTTYPE);
 ////////////////////////////////////////////////////////////////////////////////
 // Custom header files
 ////////////////////////////////////////////////////////////////////////////////
-#include "spiffs_webserver.h"
-//#include "index.h"
+#include "lib/spiffs_webserver.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Some functions
@@ -88,23 +87,17 @@ void handleNotFound(){
     server.send(404, "text/plain", "FileNotFound");
   }
 }
-
+/*
 void handleRoot() {
     DBG_OUTPUT_PORT.println("Webserver handleroot called.");
+    server.send(200, "text/html", s); //Send web page
     if (!handleFileRead(server.uri())){
       DBG_OUTPUT_PORT.println("Webserver root file not found.");
       handleNotFound();
     }
 }
 
-void resetWifi() {
-  DBG_OUTPUT_PORT.println("Resetting wifi");
-//  wifiManager.resetSettings();
-  server.send(200, "text/plain", "wifi has been reset, please connect with new accespoint."); //Send web page
-  DBG_OUTPUT_PORT.println("Restarting ESP");
-  ESP.restart();
-}
-
+*/
 // when command is received from webpages
 void setState() {
   String sRecState = server.arg("LEDstate"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
@@ -112,15 +105,36 @@ void setState() {
   DBG_OUTPUT_PORT.println("Received LEDstate: "+ sRecState);
 }
 
-void setColor() {
+void setBackColor() {
   String r = server.arg("r");
   String g = server.arg("g");
   String b = server.arg("b");
-  DBG_OUTPUT_PORT.println("Received Color: "+r+" "+b+" "+g);
+  DBG_OUTPUT_PORT.println("Received background color: "+r+" "+b+" "+g);
   iColorR = r.toInt();
   iColorG = g.toInt();
   iColorB = b.toInt();
   iRecState = colorpick; // set state to colorpick for statemachine
+}
+
+void setText() {
+  String text = server.arg("text");
+  DBG_OUTPUT_PORT.println("Received text: "+ text);
+}
+
+void setTextColor() {
+  String r = server.arg("r");
+  String g = server.arg("g");
+  String b = server.arg("b");
+  DBG_OUTPUT_PORT.println("Received text color: "+r+" "+b+" "+g);
+  iColorR = r.toInt();
+  iColorG = g.toInt();
+  iColorB = b.toInt();
+  iRecState = colorpick; // set state to colorpick for statemachine
+}
+
+void showTemp(){
+  bool show = server.arg("Show");
+  DBG_OUTPUT_PORT.println("Received show temp: "+ show);
 }
 
 
@@ -181,16 +195,6 @@ void setup() {
   // start DHT sensor
   dht.begin();
 
-
-  // get local IP and print on screen
-  IPAddress ip = WiFi.localIP();
-  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
-  matrix.setTextColor(matrix.Color(0, 255, 0));
-  matrix.setCursor(0, 0);   // start at top left, with one pixel of spacing
-  matrix.setTextSize(1);    // size 1 == 8 pixels high
-  matrix.print(ip.toString());
-  matrix.show();
-
   // setup spiffs
   DBG_OUTPUT_PORT.println("Setting up spiffs");
   if(!SPIFFS.begin())
@@ -219,11 +223,21 @@ void setup() {
   DBG_OUTPUT_PORT.println("Connected to Wifi.");
   DBG_OUTPUT_PORT.println("Starting server.");
 
+  // get local IP and print on screen
+  IPAddress ip = WiFi.localIP();
+  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
+  matrix.setTextColor(matrix.Color(0, 255, 0));
+  matrix.setCursor(0, 0);   // start at top left, with one pixel of spacing
+  matrix.setTextSize(1);    // size 1 == 8 pixels high
+  matrix.print(ip.toString());
+  matrix.show();
 
-  server.on("/", handleRoot);
-  server.on("/resetWifi", resetWifi);
+  //server.on("/", handleRoot);
   server.on("/setState", setState);
-  server.on("/setColor", setColor);
+  server.on("/setBackColor", setBackColor);
+  server.on("/setText", setText);
+  server.on("/setTextColor", setTextColor);
+  server.on("/showTemp", showTemp);
   server.on("/setBrightness", setBrightness);
   server.on("/readTemp", readTemp);
 
