@@ -5,8 +5,6 @@ See: https://github.com/klockie86/LedWall
 
 Todo:
   - loop voor IP in scherm
-  - colorpicker in Webinterface.
-  - HTML pagina via SPIFFS
   - logo instellen.
   - OTA
 */
@@ -117,7 +115,7 @@ void setBackColor() {
 }
 
 void setText() {
-  String text = server.arg("text");
+  String text = server.arg("Text");
   DBG_OUTPUT_PORT.println("Received text: "+ text);
 }
 
@@ -133,10 +131,16 @@ void setTextColor() {
 }
 
 void showTemp(){
-  bool show = server.arg("Show");
+  String show = server.arg("Show");
   DBG_OUTPUT_PORT.println("Received show temp: "+ show);
-}
+  if (show == "true"){
+      DBG_OUTPUT_PORT.println("showing temp");
+  }
+  else{
+      DBG_OUTPUT_PORT.println("not showing temp");
+  }
 
+}
 
 // when command is received from webpages
 void setBrightness() {
@@ -146,7 +150,6 @@ void setBrightness() {
   matrix.show();
   server.send(200, "text/html", sRec);
 }
-
 
 
 int getClimate(float &temp, float &hum){
@@ -223,15 +226,6 @@ void setup() {
   DBG_OUTPUT_PORT.println("Connected to Wifi.");
   DBG_OUTPUT_PORT.println("Starting server.");
 
-  // get local IP and print on screen
-  IPAddress ip = WiFi.localIP();
-  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
-  matrix.setTextColor(matrix.Color(0, 255, 0));
-  matrix.setCursor(0, 0);   // start at top left, with one pixel of spacing
-  matrix.setTextSize(1);    // size 1 == 8 pixels high
-  matrix.print(ip.toString());
-  matrix.show();
-
   //server.on("/", handleRoot);
   server.on("/setState", setState);
   server.on("/setBackColor", setBackColor);
@@ -253,11 +247,31 @@ void setup() {
 // Mainloop
 ////////////////////////////////////////////////////////////////////////////////
 void loop() {
+  // handler
   server.handleClient();
+
+  // on firstrun show IP in screen
+  static bool bFirstrun = true;
+  static bool bOneShot = true;
+  static IPAddress ip = WiFi.localIP();
+
+  // on firstrun show IP in screen
+  if(bFirstrun){
+    // get local IP and print on screen
+    if(bOneShot){
+      DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
+    }
+    matrix.setTextColor(matrix.Color(0, 255, 0));
+    matrix.setCursor(-((millis() / 30) & 127) + 20, 0);
+    matrix.setTextSize(1);    // size 1 == 8 pixels high
+    matrix.print("Made by Jeroen Klock. IP: "+ip.toString());
+    matrix.show();
+  }
 
   static int i, lastTime = 0, curTime;
   String sTemp = "";
   if(iRecState != iCurrentState || iRecState == flipmode|| iRecState == colorpick){
+    bFirstrun = false;
     switch (iRecState){
       case off:
         matrix.fillScreen(matrix.Color(0,0,0));
@@ -323,4 +337,5 @@ void loop() {
     // send state back to server
     server.send(200, "text/plane", String(iRecState));
   }
+  bOneShot = false;
 }
