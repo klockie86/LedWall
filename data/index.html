@@ -16,29 +16,35 @@
 	<div id="row_subheader">
 		<div class="container">
 			<p id="climate">laadt temperatuur</p>
-		</div>	
+		</div>
 	</div>
 	<div id= "main_container" class="container">
-		<div id="patterns">
-			<h2>Patronen</h2>
+		<div id="background">
+			<h2>Achtergrond</h2>
+			<label>Animaties:</label>
 	  		<button type="button" onclick="setState(0)">uit</button>
   			<button type="button" onclick="setState(1)">rood</button>
-			<button type="button" onclick="setState(2)">groen</button>
+			  <button type="button" onclick="setState(2)">groen</button>
   			<button type="button" onclick="setState(3)">blauw</button>
   			<button type="button" onclick="setState(4)">flipmode</button>
-			<p>Led status:<span id="Status">0</span></p>
+  			<br/>
+<!--			<p>Led status:<span id="Status">0</span></p> -->
+			<label>Achtergrondkleur:</label><input onchange="setBackColor(this.value)" type="color" id="colorpicker" value="#0071ce">
+<!--		  	<button type="submit" name="state" onclick="setColor()" >toepassen</button> -->
 		</div>
-		<div id="own_pattern">
+		<div id="foreground">
 			<h2>Tekst</h2>
+			<label>Tekst:</label><input onchange="setText(this.value)" type="text" name="text" value="Omexom"><br/>
+			<label>Kleur:</label><input onchange="setTextColor(this.value)" type="color" id="colorpicker" value="#FFFFFF"><br/>
+			<Label>Temperatuur:</label><input onchange="showTemp(this.checked)" type="checkbox" name="showTemp"><br/>
+<!--			<button type="submit" name="state" onclick="setColor()" >toepassen</button>-->
 		</div>
-		<p>Tekst:</p><input/>
-		<div class="slidecontainer">
-  			<input type="range" min="0" max="255" value="50" class="slider" id="setBrightness"/>
+		<div id="general">
+			<h2>Helderheid</h2>
+			<input type="range" min="0" max="255" value="50" class="slider" id="setBrightness"/>
 		</div>
-	  	<input type="color" id="colorpicker" value="#0071ce">
-	  	<p>Achtergrondkleur:</p><input/>
-	  	<button type="submit" name="state" onclick="setColor()" >toepassen</button>
-		
+
+
 	</div>
 	<div id="row_footer">
 		<div id= "row_container" class="container">
@@ -48,12 +54,7 @@
 <script>
 function setState(led) {
   var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("Status").innerHTML =
-      this.responseText;
-    }
-  };
+//  console.log("set status: "+led);
   xhttp.open("GET", "setState?LEDstate="+led, true);
   xhttp.send();
 }
@@ -67,30 +68,41 @@ function hexToRgb(hex) {
   } : null;
 }
 
-function setColor() {
-  var color = document.getElementById("colorpicker").value;
+
+function setBackColor(color) {
+  var colorRGB = hexToRgb(color);
+//  console.log("set background color to: "+color);
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("GET", "setBackColor?r="+colorRGB.r+"&g="+colorRGB.g+"&b="+colorRGB.b, true);
+  xhttp.send();
+}
+
+function setTextColor(color) {
   var colorRGB = hexToRgb(color);
   var xhttp = new XMLHttpRequest();
-  xhttp.open("GET", "setColor?r="+colorRGB.r+"&g="+colorRGB.g+"&b="+colorRGB.b, true);
+//  console.log("set text color to: "+color);
+  xhttp.open("GET", "setTextColor?r="+colorRGB.r+"&g="+colorRGB.g+"&b="+colorRGB.b, true);
+  xhttp.send();
+}
+
+function setText(text) {
+  var xhttp = new XMLHttpRequest();
+//  console.log("setting text: "+text);
+  xhttp.open("GET", "setText?Text="+text, true);
+  xhttp.send();
+}
+
+function showTemp(val) {
+  var xhttp = new XMLHttpRequest();
+//  console.log("showTemp: "+val);
+  xhttp.open("GET", "showTemp?Show="+val, true);
   xhttp.send();
 }
 
 setBrightness.onchange = function() {
   var xhttp = new XMLHttpRequest();
+//  console.log("setBrightness: "+this.value);
   xhttp.open("GET", "setBrightness?Brightness="+this.value, true);
-  xhttp.send();
-}
-
-
-function resetWifi() {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("resetStatus").innerHTML =
-      this.responseText;
-    }
-  };
-  xhttp.open("GET", "resetWifi", true);
   xhttp.send();
 }
 

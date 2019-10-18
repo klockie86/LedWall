@@ -4,178 +4,15 @@ Jeroen Klock 2-10-2019
 See: https://github.com/klockie86/LedWall
 
 Todo:
-  - loop voor IP in scherm
-  - colorpicker in Webinterface.
-  - HTML pagina via SPIFFS
-  - logo instellen.
   - OTA
 */
-////////////////////////////////////////////////////////////////////////////////
-// Global settings
-////////////////////////////////////////////////////////////////////////////////
-#define BRANDNAME "Omexom"
-#define NAME "Omexom LedWAll"
-#define PASSWORD  "Omexom123"
-#define PIN D2              // Output pin for data line leds
-#define DHTPIN D4           // Input pin for DHT sensor
-#define DHTTYPE DHT22       // DHT 22  (AM2302)
-#define X_MAX 20            // Amount of leds X-Axis
-#define Y_MAX 30            // Amount of leds Y-Axis
-#define BRIGHTNESS 20       // LED Brightness 0 - 255
-#define WEB_PORT 80         // Port for WIFI server
-#define DBG_OUTPUT_PORT Serial         // Port for WIFI server
 
-////////////////////////////////////////////////////////////////////////////////
-// libraries
-////////////////////////////////////////////////////////////////////////////////
-// some general libraries
-#include <Arduino.h>
-// libraries for the led wall
-#include <Adafruit_GFX.h>
-#include <Adafruit_NeoMatrix.h>
-#include <Adafruit_NeoPixel.h>
-#include <SPI.h>
-// libraries for state saving
-#include <EEPROM.h>
-// libraries for wifi en webserver
-#include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <DNSServer.h>
-#include <WiFiManager.h>
-#include <WiFiClient.h>
-#include <ESP8266mDNS.h>
-// library for SPIFFS
-#include <FS.h>
-
-// DHT related stuff
-#include <DHT.h>
-#include <Adafruit_Sensor.h>
-
-////////////////////////////////////////////////////////////////////////////////
-// Global vars
-////////////////////////////////////////////////////////////////////////////////
-enum state {off,red,green,blue,flipmode,colorpick};
-int iCurrentState, iRecState, iColorR, iColorG, iColorB;
-
-
-////////////////////////////////////////////////////////////////////////////////
-// Initiation
-////////////////////////////////////////////////////////////////////////////////
-// Instanciate HTTP(80)
-ESP8266WebServer server(80);
-
-// Instanciate NeoMatrix
-Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(X_MAX, Y_MAX, PIN,
-  NEO_MATRIX_TOP + NEO_MATRIX_LEFT +
-  NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG,
-  NEO_RGB + NEO_KHZ800);
-
-// Initialize DHT
-DHT dht(DHTPIN, DHTTYPE);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Custom header files
 ////////////////////////////////////////////////////////////////////////////////
-#include "lib/spiffs_webserver.h"
-
-////////////////////////////////////////////////////////////////////////////////
-// Some functions
-////////////////////////////////////////////////////////////////////////////////
-
-void handleNotFound(){
-  if (!handleFileRead(server.uri())) {
-    server.send(404, "text/plain", "FileNotFound");
-  }
-}
-/*
-void handleRoot() {
-    DBG_OUTPUT_PORT.println("Webserver handleroot called.");
-    server.send(200, "text/html", s); //Send web page
-    if (!handleFileRead(server.uri())){
-      DBG_OUTPUT_PORT.println("Webserver root file not found.");
-      handleNotFound();
-    }
-}
-
-*/
-// when command is received from webpages
-void setState() {
-  String sRecState = server.arg("LEDstate"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
-  iRecState = sRecState.toInt();
-  DBG_OUTPUT_PORT.println("Received LEDstate: "+ sRecState);
-}
-
-void setBackColor() {
-  String r = server.arg("r");
-  String g = server.arg("g");
-  String b = server.arg("b");
-  DBG_OUTPUT_PORT.println("Received background color: "+r+" "+b+" "+g);
-  iColorR = r.toInt();
-  iColorG = g.toInt();
-  iColorB = b.toInt();
-  iRecState = colorpick; // set state to colorpick for statemachine
-}
-
-void setText() {
-  String text = server.arg("text");
-  DBG_OUTPUT_PORT.println("Received text: "+ text);
-}
-
-void setTextColor() {
-  String r = server.arg("r");
-  String g = server.arg("g");
-  String b = server.arg("b");
-  DBG_OUTPUT_PORT.println("Received text color: "+r+" "+b+" "+g);
-  iColorR = r.toInt();
-  iColorG = g.toInt();
-  iColorB = b.toInt();
-  iRecState = colorpick; // set state to colorpick for statemachine
-}
-
-void showTemp(){
-  bool show = server.arg("Show");
-  DBG_OUTPUT_PORT.println("Received show temp: "+ show);
-}
-
-
-// when command is received from webpages
-void setBrightness() {
-  String sRec = server.arg("Brightness"); //Refer  xhttp.open("GET", "setLED?LEDstate="+led, true);
-  DBG_OUTPUT_PORT.println("Received Brightness: "+ sRec);
-  matrix.setBrightness(sRec.toInt());
-  matrix.show();
-  server.send(200, "text/html", sRec);
-}
-
-
-
-int getClimate(float &temp, float &hum){
-  DBG_OUTPUT_PORT.println("Reading temperature.");
-  temp = dht.readTemperature();
-  hum = dht.readHumidity();
-  // check if correct values are returned
-  if (isnan(temp) || isnan(hum))
-  {
-    DBG_OUTPUT_PORT.println("ERROR: Failed to read from DHT sensor!");
-    temp = 0;
-    hum = 0;
-    return 0;
-  }
-  return 1;
-}
-
-// when command is received from webpages
-void readTemp() {
-  float t;
-  float h;
-  String sTemp;
-
-// read climate from dht
-  getClimate(t,h);
-  sTemp = "<span id=\"temp\">Temperatuur: "+String(t)+"&#8451 | </span><span id = \"hum\"> Luchtvochtigheid: "+String(h)+"%</span>";
-  server.send(200, "text/html", sTemp);
-}
-
+#include "lib/globals.h"    // global settings
+#include "lib/rest_api.h"   // webserver and interfacing
 
 ////////////////////////////////////////////////////////////////////////////////
 // Setup loop
@@ -254,73 +91,100 @@ void setup() {
 ////////////////////////////////////////////////////////////////////////////////
 void loop() {
   server.handleClient();
-
+  static int iLastR, iLastG, iLastB;
   static int i, lastTime = 0, curTime;
-  String sTemp = "";
-  if(iRecState != iCurrentState || iRecState == flipmode|| iRecState == colorpick){
-    switch (iRecState){
-      case off:
+  static String sLastText;
+  switch (iRecState){
+    case off:
+      if (iCurrentState !=  iRecState){
+        DBG_OUTPUT_PORT.println("Switching off display");
         matrix.fillScreen(matrix.Color(0,0,0));
         matrix.show();
-        break;
-      case red:
+      }
+      break;
+    case red:
+      if (iCurrentState !=  iRecState){
+        DBG_OUTPUT_PORT.println("Switching display to red");
         matrix.fillScreen(matrix.Color(255,0,0));
         matrix.show();
-        break;
-      case green:
+      }
+      break;
+    case green:
+      if (iCurrentState !=  iRecState){
         matrix.fillScreen(matrix.Color(0,255,0));
+        DBG_OUTPUT_PORT.println("Switching display to green");
         matrix.show();
-        break;
-      case blue:
+      }
+      break;
+    case blue:
+      if (iCurrentState !=  iRecState){
+        DBG_OUTPUT_PORT.println("Switching display to blue");
         matrix.fillScreen(matrix.Color(0,0,255));
         matrix.show();
-        break;
-      case flipmode:
-        i ++;
-        // update temperature every 5 seconds;
-        curTime = millis();
-        if(lastTime == 0 || (curTime - lastTime > 2000)){
-          float t;
-          float h;
-          String sTemp;
-          // read climate from dht
-          if(getClimate(t,h)){
-            sTemp = "Klimaat: "+String(t)+" "+String(h);
+      }
+      break;
+    case flipmode:
+      i ++;
+      for(int y = 0; y < Y_MAX; y++){
+        for(int x = 0; x < X_MAX; x++){
+          if(y & 1){
+            matrix.setPixelColor(19 - x + y * 20, matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8 + i * 128 * 2)));
           }
           else{
-            sTemp = "";
-          }
-          lastTime = curTime;
-        }
-        for(int y = 0; y < Y_MAX; y++){
-          for(int x = 0; x < X_MAX; x++){
-            if(y & 1){
-              matrix.setPixelColor(19 - x + y * 20, matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8 + i * 128 * 2)));
-            }
-            else{
-              matrix.setPixelColor(x + y * 20,
-              matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8+ i * 128 * 2)));
-            }
+            matrix.setPixelColor(x + y * 20,
+            matrix.gamma32(matrix.ColorHSV((x + y) * 256 * 8+ i * 128 * 2)));
           }
         }
-        matrix.setTextColor(matrix.Color(0, 0, 255));
-        matrix.setCursor(-((millis() / 30) & 127) + 20, 4);
-        matrix.print(BRANDNAME+sTemp);
-        matrix.show();
-        break;
-      case colorpick:
-        static int lastR, lastG, lastB;
-        if (iColorR != lastR || iColorG != lastG || iColorB != lastB){
+      }
+      break;
+    case colorpick:
+      if (iColorR != iLastR || iColorG != iLastG || iColorB != iLastB){
           matrix.fillScreen(matrix.Color(iColorR,iColorG,iColorB));
           matrix.show();
-        }
-        break;
-      default:
-        matrix.fillScreen(matrix.Color(255,255,255));
-        matrix.show();
-    }
-    iCurrentState = iRecState;
-    // send state back to server
-    server.send(200, "text/plane", String(iRecState));
+          DBG_OUTPUT_PORT.println("Custom backgroundcolor R:"+(String)iColorR+" G:"+(String)iColorG+" B:"+(String)iColorB);
+      }
+      iLastR = iColorR;
+      iLastG = iColorG;
+      iLastB = iColorB;
+      break;
+    default:
+      matrix.fillScreen(matrix.Color(255,255,255));
+      matrix.show();
   }
+  if (bShowTemp){
+    curTime = millis();
+    if(lastTime == 0 || (curTime - lastTime > 2000)){
+      float t, h;
+      char cTemp[12];
+      // read climate from dht
+      if(getClimate(t,h)){
+        // convert float to string with 1 decimal
+        sprintf(cTemp, "%.1fC %.1f%%", t,h);
+
+        // show temp in display
+        matrix.setTextColor(matrix.Color(
+                                 iTextColorR,
+                                 iTextColorG,
+                                 iTextColorB));
+        matrix.setCursor(0, 4);
+        matrix.print((String)cTemp);
+        DBG_OUTPUT_PORT.println("Showing temp in screen:"+(String)cTemp);
+        DBG_OUTPUT_PORT.println("Textcolor R:"+(String)iTextColorR+" G:"+(String)iTextColorG+" B:"+(String)iTextColorB);
+      }
+      else{
+        sprintf(cTemp, "");
+      }
+      lastTime = curTime;
+    }
+  }
+  if (sLastText != sText){
+    matrix.setTextColor(matrix.Color(iTextColorR, iTextColorG, iTextColorB));
+    matrix.setCursor(-((millis() / 30) & 127) + 20, 0);
+    matrix.print(sText);
+    matrix.show();
+    DBG_OUTPUT_PORT.println("Showing text in screen:"+sText);
+    DBG_OUTPUT_PORT.println("Textcolor R:"+(String)iTextColorR+" G:"+(String)iTextColorG+" B:"+(String)iTextColorB);
+  }
+  sLastText = sText;
+  iCurrentState = iRecState;
 }
