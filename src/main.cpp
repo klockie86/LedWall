@@ -4,6 +4,7 @@ Jeroen Klock 2-10-2019
 See: https://github.com/klockie86/LedWall
 
 Todo:
+<<<<<<< HEAD
   - OTA
 */
 
@@ -13,6 +14,20 @@ Todo:
 ////////////////////////////////////////////////////////////////////////////////
 #include "lib/globals.h"    // global settings
 #include "lib/rest_api.h"   // webserver and interfacing
+=======
+  - loop voor IP in scherm
+  - logo instellen.
+  - OTA
+*/
+////////////////////////////////////////////////////////////////////////////////
+// Libraries
+////////////////////////////////////////////////////////////////////////////////
+#include "lib/settings.h"         // global settings, vars, and functions
+#include "lib/spiffs_webserver.h" // spiffs related functions
+#include "lib/restAPI.h"          // interaction with webpages
+
+
+>>>>>>> d79cc84c6dcb2638f8e71446da0886ea51a3b95e
 
 ////////////////////////////////////////////////////////////////////////////////
 // Setup loop
@@ -60,15 +75,6 @@ void setup() {
   DBG_OUTPUT_PORT.println("Connected to Wifi.");
   DBG_OUTPUT_PORT.println("Starting server.");
 
-  // get local IP and print on screen
-  IPAddress ip = WiFi.localIP();
-  DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
-  matrix.setTextColor(matrix.Color(0, 255, 0));
-  matrix.setCursor(0, 0);   // start at top left, with one pixel of spacing
-  matrix.setTextSize(1);    // size 1 == 8 pixels high
-  matrix.print(ip.toString());
-  matrix.show();
-
   //server.on("/", handleRoot);
   server.on("/setState", setState);
   server.on("/setBackColor", setBackColor);
@@ -90,7 +96,9 @@ void setup() {
 // Mainloop
 ////////////////////////////////////////////////////////////////////////////////
 void loop() {
+  // handler
   server.handleClient();
+<<<<<<< HEAD
   static int iLastR, iLastG, iLastB;
   static int i, lastTime = 0, curTime;
   static String sLastText;
@@ -98,6 +106,33 @@ void loop() {
     case off:
       if (iCurrentState !=  iRecState){
         DBG_OUTPUT_PORT.println("Switching off display");
+=======
+
+  // on firstrun show IP in screen
+  static bool bFirstrun = true;
+  static bool bOneShot = true;
+  static IPAddress ip = WiFi.localIP();
+
+  // on firstrun show IP in screen
+  if(bFirstrun){
+    // get local IP and print on screen
+    if(bOneShot){
+      DBG_OUTPUT_PORT.println("Print IP: "+ ip.toString() + " on LEDwall.");
+    }
+    matrix.setTextColor(matrix.Color(0, 255, 0));
+    matrix.setCursor(-((millis() / 30) & 127) + 20, 0);
+    matrix.setTextSize(1);    // size 1 == 8 pixels high
+    matrix.print("Made by Jeroen Klock. IP: "+ip.toString());
+    matrix.show();
+  }
+
+  static int i, lastTime = 0, curTime;
+  String sTemp = "";
+  if(iRecState != iCurrentState || iRecState == flipmode|| iRecState == colorpick){
+    bFirstrun = false;
+    switch (iRecState){
+      case off:
+>>>>>>> d79cc84c6dcb2638f8e71446da0886ea51a3b95e
         matrix.fillScreen(matrix.Color(0,0,0));
         matrix.show();
       }
@@ -177,6 +212,7 @@ void loop() {
       lastTime = curTime;
     }
   }
+<<<<<<< HEAD
   if (sLastText != sText){
     matrix.setTextColor(matrix.Color(iTextColorR, iTextColorG, iTextColorB));
     matrix.setCursor(-((millis() / 30) & 127) + 20, 0);
@@ -187,4 +223,7 @@ void loop() {
   }
   sLastText = sText;
   iCurrentState = iRecState;
+=======
+  bOneShot = false;
+>>>>>>> d79cc84c6dcb2638f8e71446da0886ea51a3b95e
 }
