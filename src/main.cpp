@@ -4,30 +4,20 @@ Jeroen Klock 2-10-2019
 See: https://github.com/klockie86/LedWall
 
 Todo:
-<<<<<<< HEAD
-  - OTA
+ - Devide librarie files
 */
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Custom header files
 ////////////////////////////////////////////////////////////////////////////////
 #include "lib/globals.h"    // global settings
 #include "lib/rest_api.h"   // webserver and interfacing
-=======
-  - loop voor IP in scherm
-  - logo instellen.
-  - OTA
-*/
 ////////////////////////////////////////////////////////////////////////////////
 // Libraries
 ////////////////////////////////////////////////////////////////////////////////
 #include "lib/settings.h"         // global settings, vars, and functions
 #include "lib/spiffs_webserver.h" // spiffs related functions
 #include "lib/restAPI.h"          // interaction with webpages
-
-
->>>>>>> d79cc84c6dcb2638f8e71446da0886ea51a3b95e
 
 ////////////////////////////////////////////////////////////////////////////////
 // Setup loop
