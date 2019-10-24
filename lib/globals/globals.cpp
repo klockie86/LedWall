@@ -4,7 +4,7 @@ Jeroen Klock 17-10-2019
 See: https://github.com/klockie86/LedWall
 */
 
-#include "globals.h"
+#include <globals.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Global vars
